@@ -1,7 +1,8 @@
 ---
 title: "Evaluating weighted regression half-window widths"
 output: 
-  flexdashboard::flex_dashboard
+  flexdashboard::flex_dashboard:
+    orientation: rows
 runtime: shiny
 ---
   
@@ -25,20 +26,31 @@ metobsdat <- reactive({
   
   # inputs
   site <- input$site
-  months <- input$months
+  dts <- input$dts
   day <- input$day
   hour <- input$hour
   tide <- input$tide
-  
-  months <- seq(months[1], months[2])
     
   flnm <- paste('metobs', site, day, hour, tide, sep = '_')
   load(file = paste0('data/', flnm, '.RData'))
   dat <- get(flnm) %>% 
-    na.omit() %>% 
-    filter(month(Date) %in% months)
+    na.omit()
+    
+  # get year
+  yr <- dat$Date %>% 
+    strftime(format = '%Y') %>% 
+    unique
+  dts <- gsub('^[0-9]+', yr, dts) %>% 
+    as.Date
   
-  return(dat)
+  # filter
+  out <- dat %>% 
+    filter(Date >= dts[1] & Date <= dts[2])
+
+  attr(out, 'rawdat') <- attr(out, 'rawdat') %>% 
+    filter(DateTimeStamp >= dts[1] & DateTimeStamp <= dts[2])
+  
+  return(out)
   
 })
   
@@ -47,20 +59,31 @@ metdtddat <- reactive({
   
   # inputs
   site <- input$site
-  months <- input$months
+  dts <- input$dts
   day <- input$day
   hour <- input$hour
   tide <- input$tide
-  
-  months <- seq(months[1], months[2])
-  
+
   flnm <- paste('metdtd', site, day, hour, tide, sep = '_')
   load(file = paste0('data/', flnm, '.RData'))
   dat <- get(flnm) %>% 
-    na.omit() %>% 
-    filter(month(Date) %in% months)
+    na.omit()
   
-  return(dat)
+  # get year
+  yr <- dat$Date %>% 
+    strftime(format = '%Y') %>% 
+    unique
+  dts <- gsub('^[0-9]+', yr, dts) %>% 
+    as.Date
+  
+  # filter
+  out <- dat %>% 
+    filter(Date >= dts[1] & Date <= dts[2])
+  
+  attr(out, 'rawdat') <- attr(out, 'rawdat') %>% 
+    filter(DateTimeStamp >= dts[1] & DateTimeStamp <= dts[2])
+  
+  return(out)
   
 })
   
@@ -69,19 +92,27 @@ obsdat <- reactive({
   
   # inputs
   site <- input$site
-  months <- input$months
+  dts <- input$dts
   day <- input$day
   hour <- input$hour
   tide <- input$tide
-    
-  months <- seq(months[1], months[2])
   
   flnm <- paste('DO', site, day, hour, tide, sep = '_')
   load(file = paste0('data/', flnm, '.RData'))
-  dat <- get(flnm) %>% 
-    filter(month(DateTimeStamp) %in% months)
+  dat <- get(flnm)
+
+  # get year
+  yr <- dat$Date %>% 
+    strftime(format = '%Y') %>% 
+    unique
+  dts <- gsub('^[0-9]+', yr, dts) %>% 
+    as.Date
+    
+  # filter
+  out <- dat %>% 
+    filter(DateTimeStamp >= dts[1] & DateTimeStamp <= dts[2])
   
-  return(dat)
+  return(out)
   
 })
 
@@ -106,10 +137,7 @@ evalcorr <- reactive({
   
   # input
   evaldat <- evaldat()
-  months <- input$months
-  
-  months <- seq(months[1], months[2])
-   
+
   out <- evaldat %>% 
     enframe('set', 'corr') %>% 
     mutate(
@@ -133,9 +161,8 @@ evalcorr <- reactive({
     ) %>% 
     unnest('corr') %>% 
     mutate(month = as.numeric(month)) %>% 
-    dplyr::filter(month %in% months) %>% 
     mutate(
-      month = factor(month, levels = sort(as.numeric(months))), 
+      month = factor(month, levels = sort(as.numeric(unique(month)))), 
       var = factor(var, levels = c('DOcor', 'Pgcor', 'Rtcor'), labels = c('DO', 'Pg', 'Rt')), 
       set = factor(set, levels = c('Observed', 'Detided'))
       )
@@ -183,19 +210,24 @@ metplo <- reactive({
   metdtddat <- metdtddat()
   metobsdat <- metobsdat()
   obsdat <- obsdat()
-  months <- input$months
+  dts <- input$dts
   
   validate(
     need(nrow(metdtddat) > 0, "Insufficient data")
   )
 
+  # format axis lims
+  yr <- obsdat$DateTimeStamp %>% 
+    strftime(format = '%Y') %>% 
+    unique
+  dts <- gsub('^[0-9]+', yr, dts) %>% 
+    as.Date
+  
   # x axix limits
   yr <- metobsdat$Date %>% 
     year %>% 
     unique
-  xlims <- paste(months, c(1, 31), sep = '-') %>% 
-    paste(yr, ., sep = '-') %>% 
-    ymd()
+  xlims <- dts
   
   toplo <- obsdat %>% 
     select(DateTimeStamp, DO_obs, DO_nrm) %>% 
@@ -234,7 +266,7 @@ metplo <- reactive({
     ) + 
     scale_x_datetime(limits = as.POSIXct(xlims))
   
-  p1 + p2 + p3 + p4 + plot_layout(ncol = 1)
+  p1 + p2 + p3 + p4 + plot_layout(ncol = 2, byrow = F)
   
 })
 
@@ -243,10 +275,7 @@ anotab <- reactive({
   
   # input
   evaldat <- evaldat()
-  months <- input$months
-  
-  months <- seq(months[1], months[2])
-  
+
   out <- evaldat %>% 
     enframe('set', 'anom') %>% 
     mutate(
@@ -299,7 +328,7 @@ cortab <- reactive({
 ```
 
 
-Inputs {.sidebar}
+Inputs {.sidebar data-width=400}
 -------------------------------------
 
 ```{r ui}
@@ -307,7 +336,7 @@ column(12,
   selectInput('site', label = 'Select site',  choices = c('APNERR', 'SAPDC'))
 )
 column(12, 
-  sliderInput('months', 'Select months', min = 1, max = 12, step = 1, value = c(1, 12))
+  sliderInput('dts', 'Select date range', min = as.Date('2019-01-01'), max = as.Date('2019-12-31'), value = as.Date(c('2019-01-01', '2019-12-31')), timeFormat = '%m-%d')
 )
 column(12, 
   radioButtons('day', label = h3('Day'), choices = list('one' = 1, 'three' = 3, 'six' = 6, 'nine' = 9, 'twelve' = 12))
@@ -320,36 +349,38 @@ column(12,
 )
 ```
 
-Column {.tabset}
+Row {.tabset}
 -------------------------------------
 
 ### Correlation plots
 
 ```{r}
-output$corplo <- renderPlot(corplo(), height = 300, width = 900)
+output$corplo <- renderPlot(corplo())#, height = 300, width = 900)
 plotOutput('corplo')
 ```
+
+### Correlation summary
+
+```{r}
+output$cortab <- renderTable(cortab())
+tableOutput('cortab')
+```
+
+Row {.tabset}
+-------------------------------------
 
 ### Metabolism plots
 
 ```{r}
-output$metplo <- renderPlot(metplo(), height = 600, width = 900)
+output$metplo <- renderPlot(metplo())#, height = 600, width = 900)
 plotOutput('metplo')
 ```
 
-### Summary tables
-
-#### Anomaly summary
+### Anomaly
 
 ```{r}
 output$anotab <- renderTable(anotab())
 tableOutput('anotab')
 ```
 
-#### Correlation summary
-
-```{r}
-output$cortab <- renderTable(cortab())
-tableOutput('cortab')
-```
 
