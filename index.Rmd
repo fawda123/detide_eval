@@ -193,7 +193,7 @@ corplo <- reactive({
     ylab('Correlation with tide') +
     xlab('Month') +
     theme_bw() +
-    theme(text = element_text(size=18), 
+    theme(text = element_text(size=14), 
       legend.position = 'top',
       legend.direction = 'horizontal',
       legend.title = element_blank()
@@ -202,6 +202,42 @@ corplo <- reactive({
   print(p)
   
   })
+
+# beta estimate plots
+betplo <- reactive({
+  
+  # input
+  obsdat <- obsdat()
+  dts <- input$dts
+
+  req(obsdat)
+  
+  # format axis lims
+  yr <- obsdat$DateTimeStamp %>% 
+    strftime(format = '%Y') %>% 
+    unique
+  dts <- gsub('^[0-9]+', yr, dts) %>% 
+    as.Date
+  xlims <- dts
+  
+  out <- ggplot(obsdat, aes(x = DateTimeStamp, y = Beta2)) + 
+    geom_line() + 
+    geom_point(size = 0.5) +
+    geom_hline(yintercept = 0, colour = 'tomato1') +
+    labs(
+      subtitle = expression(paste(italic('\u03B2'[2]), ' estimates of DO vs tidal height'))
+      ) +
+    scale_y_continuous(expression(italic('\u03B2'[2]))) +
+    theme_bw() + 
+    theme(
+      axis.title.x = element_blank(),
+      text = element_text(size=14) 
+      ) +
+    scale_x_datetime(limits = as.POSIXct(xlims))
+  
+  return(out)
+  
+})
 
 # metabolism plot
 metplo <- reactive({
@@ -223,7 +259,7 @@ metplo <- reactive({
   dts <- gsub('^[0-9]+', yr, dts) %>% 
     as.Date
   
-  # x axix limits
+  # x axis limits
   yr <- metobsdat$Date %>% 
     year %>% 
     unique
@@ -369,6 +405,13 @@ plotOutput('corplo')
 ```{r}
 output$cortab <- renderTable(cortab())
 tableOutput('cortab')
+```
+
+### $\beta_2$ plot
+
+```{r}
+output$betplo <- renderPlot(betplo())
+plotOutput('betplo')
 ```
 
 Row {.tabset}
