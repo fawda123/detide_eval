@@ -374,7 +374,7 @@ Inputs {.sidebar data-width=400}
 
 ```{r ui}
 column(12, 
-  selectInput('site', label = 'Select site',  choices = list('Apalachicola' = 'APNERR', 'Hudson River' = 'HUDNERR', 'Sapelo Island' = 'SAPDC'))
+  selectInput('site', label = 'Select site',  choices = list('Apalachicola' = 'APNERR', 'Hudson River' = 'HUDNERR', 'Piermont' = 'PIERMO', 'Sapelo Island' = 'SAPDC'))
 )
 column(12, 
   sliderInput('dts', 'Select date range', min = as.Date('2019-01-01'), max = as.Date('2019-12-31'), value = as.Date(c('2019-01-01', '2019-12-31')), timeFormat = '%m-%d')

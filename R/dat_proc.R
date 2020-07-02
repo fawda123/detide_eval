@@ -6,8 +6,8 @@ library(patchwork)
 library(here)
 
 wingrds <- crossing(
-    # tibble(flnm = c('APNERR', 'HUDNERR', 'SAPDC', 'PIERMO'), tz = c('America/New_York', 'America/Jamaica', 'America/Jamaica', 'America/Jamaica'), lat = c(29.75, 42.017, 31.39, 41.04), long = c(-85, -73.915, -81.28, -73.90)),
-    tibble(flnm = c('PIERMO'), tz = c('America/Jamaica'), lat = c(41.04), long = c(-73.90)),
+    tibble(flnm = c('APNERR', 'HUDNERR', 'SAPDC', 'PIERMO'), tz = c('America/New_York', 'America/Jamaica', 'America/Jamaica', 'America/Jamaica'), lat = c(29.75, 42.017, 31.39, 41.04), long = c(-85, -73.915, -81.28, -73.90)),
+    # tibble(flnm = c('PIERMO'), tz = c('America/Jamaica'), lat = c(41.04), long = c(-73.90)),
     daywin = c(1, 3, 6, 9, 12),
     hrswin = c(1, 3, 6, 9, 12), 
     tidwin = c(0.2, 0.4, 0.6, 0.8, 1)
