@@ -245,11 +245,42 @@ metplo <- reactive({
   # input
   metdtddat <- metdtddat()
   metobsdat <- metobsdat()
-  obsdat <- obsdat()
   dts <- input$dts
   
   validate(
     need(nrow(metdtddat) > 0, "Insufficient data")
+  )
+
+  # x axis limits
+  xlims <- dts
+
+  p1 <- plot(metobsdat, by = 'days') +
+    labs(subtitle = 'Observed results') + 
+    theme(legend.position = 'top') + 
+    scale_x_date(limits = xlims)
+  
+  p2 <- plot(metdtddat, by = 'days') + 
+    labs(subtitle = 'Detided results') + 
+    theme(
+      legend.position = 'none', 
+      legend.title = element_blank()
+      ) + 
+    scale_x_date(limits = xlims)
+  
+  p1 + p2 + plot_layout(ncol = 1)
+  
+})
+
+# dissolved oxygen and tidal height plot
+dotdplo <- reactive({
+  
+  # input
+  metobsdat <- metobsdat()
+  obsdat <- obsdat()
+  dts <- input$dts
+  
+  validate(
+    need(nrow(obsdat) > 0, "Insufficient data")
   )
 
   # format axis lims
@@ -269,32 +300,19 @@ metplo <- reactive({
     select(DateTimeStamp, DO_obs, DO_nrm) %>% 
     gather('var', 'val', -DateTimeStamp) %>% 
     mutate(var = factor(var, levels = c('DO_obs', 'DO_nrm'), labels = c('Observed', 'Detided')))
-
-  p1 <- plot(metobsdat, by = 'days') +
-    labs(subtitle = 'Observed results') + 
-    theme(legend.position = 'none') + 
-    scale_x_date(limits = xlims)
   
-  p2 <- plot(metdtddat, by = 'days') + 
-    labs(subtitle = 'Detided results') + 
-    theme(
-      legend.position = 'right', 
-      legend.title = element_blank()
-      ) + 
-    scale_x_date(limits = xlims)
-  
-  p3 <- ggplot(toplo, aes(x = DateTimeStamp, y = val, colour = var)) + 
+  p1 <- ggplot(toplo, aes(x = DateTimeStamp, y = val, colour = var)) + 
     geom_line() + 
     theme_bw() + 
     labs(y = 'DO (mg/l)', subtitle = '') +
     theme(
-      legend.position = 'right', 
+      legend.position = 'top', 
       legend.title = element_blank(), 
       axis.title.x = element_blank()
     ) + 
     scale_x_datetime(limits = as.POSIXct(xlims))
   
-  p4 <- ggplot(obsdat, aes(x = DateTimeStamp, y = Tide, colour = Sal)) + 
+  p2 <- ggplot(obsdat, aes(x = DateTimeStamp, y = Tide, colour = Sal)) + 
     geom_line() + 
     theme_bw() + 
     scale_colour_gradientn(name = 'Sal (psu)', 
@@ -302,12 +320,12 @@ metplo <- reactive({
       ) +
     labs(y = 'Tide (m)', subtitle = '') +
     theme(
-      legend.position = 'right', 
+      legend.position = 'top', 
       axis.title.x = element_blank()
     ) + 
     scale_x_datetime(limits = as.POSIXct(xlims))
   
-  (p1 + p2 + plot_layout(ncol = 1, guides = 'collect')) | (p3 + p4 + plot_layout(ncol = 1))
+  p1 + p2 + plot_layout(ncol = 1)
   
 })
 
@@ -422,6 +440,13 @@ Row {.tabset}
 ```{r}
 output$metplo <- renderPlot(metplo())#, height = 600, width = 900)
 plotOutput('metplo')
+```
+
+### Dissolved oxygen and tidal height
+
+```{r}
+output$dotdplo <- renderPlot(dotdplo())#, height = 600, width = 900)
+plotOutput('dotdplo')
 ```
 
 ### Anomaly
