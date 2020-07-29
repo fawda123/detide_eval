@@ -35,14 +35,13 @@ metobsdat <- reactive({
   load(file = paste0('data/', flnm, '.RData'))
   dat <- get(flnm) %>% 
     na.omit()
-    
+ 
   # get year
   yr <- dat$Date %>% 
     strftime(format = '%Y') %>% 
     unique
-  dts <- gsub('^[0-9]+', yr, dts) %>% 
-    as.Date
-  
+  dts <- ymd(paste0(yr, '-1-1')) + dts - 1
+    
   # filter
   out <- dat %>% 
     filter(Date >= dts[1] & Date <= dts[2])
@@ -73,8 +72,7 @@ metdtddat <- reactive({
   yr <- dat$Date %>% 
     strftime(format = '%Y') %>% 
     unique
-  dts <- gsub('^[0-9]+', yr, dts) %>% 
-    as.Date
+  dts <- ymd(paste0(yr, '-1-1')) + dts - 1
   
   # filter
   out <- dat %>% 
@@ -105,8 +103,7 @@ obsdat <- reactive({
   yr <- dat$Date %>% 
     strftime(format = '%Y') %>% 
     unique
-  dts <- gsub('^[0-9]+', yr, dts) %>% 
-    as.Date
+  dts <- ymd(paste0(yr, '-1-1')) + dts - 1
     
   # filter
   out <- dat %>% 
@@ -216,8 +213,7 @@ betplo <- reactive({
   yr <- obsdat$DateTimeStamp %>% 
     strftime(format = '%Y') %>% 
     unique
-  dts <- gsub('^[0-9]+', yr, dts) %>% 
-    as.Date
+  dts <- ymd(paste0(yr, '-1-1')) + dts - 1
   xlims <- dts
   
   out <- ggplot(obsdat, aes(x = DateTimeStamp, y = Beta2)) + 
@@ -243,6 +239,7 @@ betplo <- reactive({
 metplo <- reactive({
   
   # input
+  obsdat <- obsdat()
   metdtddat <- metdtddat()
   metobsdat <- metobsdat()
   dts <- input$dts
@@ -252,6 +249,11 @@ metplo <- reactive({
   )
 
   # x axis limits
+  # format axis lims
+  yr <- obsdat$DateTimeStamp %>% 
+    strftime(format = '%Y') %>% 
+    unique
+  dts <- ymd(paste0(yr, '-1-1')) + dts - 1
   xlims <- dts
 
   p1 <- plot(metobsdat, by = 'days') +
@@ -287,9 +289,8 @@ dotdplo <- reactive({
   yr <- obsdat$DateTimeStamp %>% 
     strftime(format = '%Y') %>% 
     unique
-  dts <- gsub('^[0-9]+', yr, dts) %>% 
-    as.Date
-  
+  dts <- ymd(paste0(yr, '-1-1')) + dts - 1
+
   # x axis limits
   yr <- metobsdat$Date %>% 
     year %>% 
@@ -392,10 +393,10 @@ Inputs {.sidebar data-width=400}
 
 ```{r ui}
 column(12, 
-  selectInput('site', label = 'Select site',  choices = list('Apalachicola' = 'APNERR', 'Hudson River' = 'HUDNERR', 'Piermont' = 'PIERMO', 'Sapelo Island' = 'SAPDC'))
+  selectInput('site', label = 'Select site',  choices = list('Apalachicola 2019' = 'APNERR', 'Apalachicola 2018' = 'APNERR2018', 'Hudson River' = 'HUDNERR', 'Piermont' = 'PIERMO', 'Sapelo Island' = 'SAPDC'))
 )
 column(12, 
-  sliderInput('dts', 'Select date range', min = as.Date('2019-01-01'), max = as.Date('2019-12-31'), value = as.Date(c('2019-01-01', '2019-12-31')), timeFormat = '%m-%d')
+  sliderInput('dts', 'Select date range (days of year)', min = 1, max = 365, value = c(1, 365))
 )
 column(12, 
   radioButtons('day', label = h3('Day'), choices = list('one' = 1, 'three' = 3, 'six' = 6, 'nine' = 9, 'twelve' = 12))
