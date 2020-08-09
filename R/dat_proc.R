@@ -4,9 +4,54 @@ library(WtRegDO)
 library(doParallel)
 library(patchwork)
 library(here)
+library(janitor)
+library(read_excel)
+
+# piermont data prep ------------------------------------------------------
+
+met <- read.table('data/raw/piermont_met_all_2017.txt', sep = '\t', header = F) %>% 
+  rename(
+    DateTimeStamp = V1, 
+    PAR = V2, 
+    rain = V3, 
+    ATemp = V4, 
+    RH = V5,
+    WD = V6,
+    WSpd = V7,
+    Gust = V8,
+    blankT = V9, 
+    blankRH = V10, 
+    BP = V11
+  ) %>% 
+  select(DateTimeStamp, ATemp, BP, WSpd) %>% 
+  mutate(
+    DateTimeStamp = mdy_hms(DateTimeStamp, tz = 'America/Jamaica')
+  )
+
+# wq <- read_excel('data/raw/piermont_ysi_2017_ALL.xlsx', col_names = F) %>% 
+#   clean_names() %>% 
+#   rename(
+#     DateTimeStmp = x1, 
+#     = x2, 
+#     = x3, 
+#     = x4, 
+#     = x5, 
+#     = x6, 
+#     = x7, 
+#     = x8, 
+#     = x9, 
+#     = x10, 
+#     = x11, 
+#     = x12, 
+#     = x13, 
+#     = x14, 
+#     = x15
+#   )
+
+# process wtregdo ---------------------------------------------------------
 
 wingrds <- crossing(
-    tibble(flnm = c('APNERR', 'APNERR2018', 'HUDNERR', 'SAPDC', 'PIERMO'), tz = c('America/New_York', 'America/New_York', 'America/Jamaica', 'America/Jamaica', 'America/Jamaica'), lat = c(29.75, 29.75, 42.017, 31.39, 41.04), long = c(-85, -85, -73.915, -81.28, -73.90)),
+    tibble(flnm = c('APNERR', 'APNERR2018', 'HUDNERR', 'SAPDC', 'PIERMO'), tz = c('America/Jamaica', 'America/Jamaica', 'America/Jamaica', 'America/Jamaica', 'America/Jamaica'), lat = c(29.75, 29.75, 42.017, 31.39, 41.04), long = c(-85, -85, -73.915, -81.28, -73.90)),
     daywin = c(1, 3, 6, 9, 12),
     hrswin = c(1, 3, 6, 9, 12), 
     tidwin = c(0.2, 0.4, 0.6, 0.8, 1)
