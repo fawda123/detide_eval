@@ -26,7 +26,8 @@ met <- read.table('data/raw/piermont_met_all_2017.txt', sep = '\t', header = F) 
   select(DateTimeStamp, ATemp, BP, WSpd) %>% 
   mutate(
     DateTimeStamp = mdy_hms(DateTimeStamp, tz = 'America/Jamaica')
-  )
+  ) %>% 
+  arrange(DateTimeStamp)
 
 wq <- read_excel('data/raw/piermont_ysi_2017_ALL.xlsx', col_names = F) %>%
   clean_names() %>%
@@ -47,18 +48,27 @@ wq <- read_excel('data/raw/piermont_ysi_2017_ALL.xlsx', col_names = F) %>%
     battery = x14,
     depthcorr = x15
   ) %>% 
-  mutate(DateTimeStamp = force_tz(DateTimeStamp, tz = 'America/Jamaica')) %>% 
+  mutate(
+    DateTimeStamp = force_tz(DateTimeStamp, tz = 'America/Jamaica')
+    ) %>% 
   select(DateTimeStamp, Temp, Sal, DO_obs, Tide = depthcorr) %>% 
-  na.omit()
+  na.omit() %>% 
+  arrange(DateTimeStamp) %>% 
+  group_by(DateTimeStamp) %>% 
+  summarise_all(mean, na.rm = T)
 
-PIERMO17 <- inner_join(wq, met, by = 'DateTimeStamp')
+PIERMO2017 <- inner_join(wq, met, by = 'DateTimeStamp') %>% 
+  arrange(DateTimeStamp) %>% 
+  mutate(
+    DateTimeStamp = format(DateTimeStamp, '%m/%d/%Y %H:%M')
+  )
 
-write.csv(PIERMO17, 'data/raw/PIERMO17.csv', row.names = F)
+write.csv(PIERMO2017, 'data/raw/PIERMO2017.csv', row.names = F)
 
 # process wtregdo ---------------------------------------------------------
 
 wingrds <- crossing(
-    tibble(flnm = c('APNERR', 'APNERR2018', 'HUDNERR', 'SAPDC', 'PIERMO', 'PIERMO17'), tz = c('America/Jamaica', 'America/Jamaica', 'America/Jamaica', 'America/Jamaica', 'America/Jamaica', 'America/Jamaica'), lat = c(29.75, 29.75, 42.017, 31.39, 41.04, 41.04), long = c(-85, -85, -73.915, -81.28, -73.90, -73.90)),
+    tibble(flnm = c('APNERR', 'APNERR2018', 'HUDNERR', 'SAPDC', 'PIERMO', 'PIERMO2017'), tz = c('America/Jamaica', 'America/Jamaica', 'America/Jamaica', 'America/Jamaica', 'America/Jamaica', 'America/Jamaica'), lat = c(29.75, 29.75, 42.017, 31.39, 41.04, 41.04), long = c(-85, -85, -73.915, -81.28, -73.90, -73.90)),
     daywin = c(1, 3, 6, 9, 12),
     hrswin = c(1, 3, 6, 9, 12), 
     tidwin = c(0.2, 0.4, 0.6, 0.8, 1)
@@ -66,7 +76,7 @@ wingrds <- crossing(
 
 # use this to filter out new files from the grid
 wingrds <- wingrds %>%
-  filter(flnm %in% 'PIERMO17')
+  filter(flnm %in% 'PIERMO2017')
 
 ncores <- detectCores()  
 registerDoParallel(cores = ncores - 1)
