@@ -17,7 +17,7 @@ library(patchwork)
 library(ShinyDash)
 library(shinydashboard)
 library(flexdashboard)
-library(RColorBrewer)
+library(colorspace)
 ```
 
 ```{r reactives}
@@ -30,24 +30,22 @@ metobsdat <- reactive({
   day <- input$day
   hour <- input$hour
   tide <- input$tide
-    
+  
+  req(dts)
+  
   flnm <- paste('metobs', site, day, hour, tide, sep = '_')
   load(file = paste0('data/', flnm, '.RData'))
   dat <- get(flnm) %>% 
     na.omit()
  
-  # get year
-  yr <- dat$Date %>% 
-    strftime(format = '%Y') %>% 
-    unique
-  dts <- ymd(paste0(yr, '-1-1')) + dts - 1
-    
   # filter
   out <- dat %>% 
     filter(Date >= dts[1] & Date <= dts[2])
-
+  
   attr(out, 'rawdat') <- attr(out, 'rawdat') %>% 
     filter(DateTimeStamp >= dts[1] & DateTimeStamp <= dts[2])
+  
+  req(nrow(out) > 0)
   
   return(out)
   
@@ -62,17 +60,13 @@ metdtddat <- reactive({
   day <- input$day
   hour <- input$hour
   tide <- input$tide
-
+  
+  req(dts)
+  
   flnm <- paste('metdtd', site, day, hour, tide, sep = '_')
   load(file = paste0('data/', flnm, '.RData'))
   dat <- get(flnm) %>% 
     na.omit()
-  
-  # get year
-  yr <- dat$Date %>% 
-    strftime(format = '%Y') %>% 
-    unique
-  dts <- ymd(paste0(yr, '-1-1')) + dts - 1
   
   # filter
   out <- dat %>% 
@@ -81,6 +75,8 @@ metdtddat <- reactive({
   attr(out, 'rawdat') <- attr(out, 'rawdat') %>% 
     filter(DateTimeStamp >= dts[1] & DateTimeStamp <= dts[2])
   
+  req(nrow(out) > 0)
+    
   return(out)
   
 })
@@ -95,19 +91,17 @@ obsdat <- reactive({
   hour <- input$hour
   tide <- input$tide
   
+  req(dts)
+  
   flnm <- paste('DO', site, day, hour, tide, sep = '_')
   load(file = paste0('data/', flnm, '.RData'))
   dat <- get(flnm)
 
-  # get year
-  yr <- dat$Date %>% 
-    strftime(format = '%Y') %>% 
-    unique
-  dts <- ymd(paste0(yr, '-1-1')) + dts - 1
-    
   # filter
   out <- dat %>% 
     filter(DateTimeStamp >= dts[1] & DateTimeStamp <= dts[2])
+
+  req(nrow(out) > 0)  
   
   return(out)
   
@@ -134,7 +128,7 @@ evalcorr <- reactive({
   
   # input
   evaldat <- evaldat()
-
+  
   out <- evaldat %>% 
     enframe('set', 'corr') %>% 
     mutate(
@@ -209,11 +203,7 @@ betplo <- reactive({
 
   req(obsdat)
   
-  # format axis lims
-  yr <- obsdat$DateTimeStamp %>% 
-    strftime(format = '%Y') %>% 
-    unique
-  dts <- ymd(paste0(yr, '-1-1')) + dts - 1
+  # x axis limits
   xlims <- dts
   
   out <- ggplot(obsdat, aes(x = DateTimeStamp, y = Beta2)) + 
@@ -239,21 +229,11 @@ betplo <- reactive({
 metplo <- reactive({
   
   # input
-  obsdat <- obsdat()
   metdtddat <- metdtddat()
   metobsdat <- metobsdat()
   dts <- input$dts
   
-  validate(
-    need(nrow(metdtddat) > 0, "Insufficient data")
-  )
-
   # x axis limits
-  # format axis lims
-  yr <- obsdat$DateTimeStamp %>% 
-    strftime(format = '%Y') %>% 
-    unique
-  dts <- ymd(paste0(yr, '-1-1')) + dts - 1
   xlims <- dts
 
   p1 <- plot(metobsdat, by = 'days') +
@@ -277,24 +257,10 @@ metplo <- reactive({
 dotdplo <- reactive({
   
   # input
-  metobsdat <- metobsdat()
   obsdat <- obsdat()
   dts <- input$dts
-  
-  validate(
-    need(nrow(obsdat) > 0, "Insufficient data")
-  )
-
-  # format axis lims
-  yr <- obsdat$DateTimeStamp %>% 
-    strftime(format = '%Y') %>% 
-    unique
-  dts <- ymd(paste0(yr, '-1-1')) + dts - 1
 
   # x axis limits
-  yr <- metobsdat$Date %>% 
-    year %>% 
-    unique
   xlims <- dts
   
   toplo <- obsdat %>% 
@@ -303,7 +269,7 @@ dotdplo <- reactive({
     mutate(var = factor(var, levels = c('DO_obs', 'DO_nrm'), labels = c('Observed', 'Detided')))
   
   p1 <- ggplot(toplo, aes(x = DateTimeStamp, y = val, colour = var)) + 
-    geom_line() + 
+    geom_line(size = 1) + 
     theme_bw() + 
     labs(y = 'DO (mg/l)', subtitle = '') +
     theme(
@@ -314,11 +280,9 @@ dotdplo <- reactive({
     scale_x_datetime(limits = as.POSIXct(xlims))
   
   p2 <- ggplot(obsdat, aes(x = DateTimeStamp, y = Tide, colour = Sal)) + 
-    geom_line() + 
+    geom_line(size = 1) + 
     theme_bw() + 
-    scale_colour_gradientn(name = 'Sal (psu)', 
-      colours = rev(brewer.pal(7, 'Spectral'))
-      ) +
+    scale_color_continuous_sequential(name = 'Sal (psu)', palette = 'Viridis') +
     labs(y = 'Tide (m)', subtitle = '') +
     theme(
       legend.position = 'top', 
@@ -393,10 +357,24 @@ Inputs {.sidebar data-width=400}
 
 ```{r ui}
 column(12, 
-  selectInput('site', label = 'Select site',  choices = list('Apalachicola 2019' = 'APNERR', 'Apalachicola 2018' = 'APNERR2018', 'Hudson River' = 'HUDNERR', 'Piermont' = 'PIERMO', 'Sapelo Island' = 'SAPDC'))
+  selectInput('site', label = 'Select site',  choices = list('Apalachicola 2019' = 'APNERR', 'Apalachicola 2018' = 'APNERR2018', 'Hudson River' = 'HUDNERR', 'Piermont 2020' = 'PIERMO', 'Piermont 2017' = 'PIERMO2017', 'Sapelo Island' = 'SAPDC'))
 )
 column(12, 
-  sliderInput('dts', 'Select date range (days of year)', min = 1, max = 365, value = c(1, 365))
+  renderUI({
+   
+    # input
+    site <- input$site
+
+    flnm <-  paste0('metobs_', site, '_1_1_0.2')
+    load(file = paste0('data/', flnm, '.RData'))
+    dtssel <- get(flnm) %>% 
+      na.omit() %>% 
+      pull(Date) %>% 
+      range
+    
+    sliderInput('dts', 'Select date range', min = dtssel[1], max = dtssel[2], value = dtssel, timeFormat = '%m-%d-%y')
+    
+  })
 )
 column(12, 
   radioButtons('day', label = h3('Day'), choices = list('one' = 1, 'three' = 3, 'six' = 6, 'nine' = 9, 'twelve' = 12))
