@@ -29,27 +29,26 @@ met <- read.table('data/raw/piermont_met_all_2017.txt', sep = '\t', header = F) 
   ) %>% 
   arrange(DateTimeStamp)
 
-wq <- read_excel('data/raw/piermont_ysi_2017_ALL.xlsx', col_names = F) %>%
-  clean_names() %>%
+wq <- read.table('data/raw/piermont_ysi_2017correct.txt', sep = '\t') %>% 
   rename(
-    DateTimeStamp = x1,
-    BP = x2,
-    Temp = x3,
-    Cond = x4,
-    Sal = x5,
-    depth = x6,
-    pH = x7,
-    pHvolt= x8,
-    NTU = x9,
-    blank = x10,
-    O2sat = x11,
-    time = x12,
-    DO_obs = x13,
-    battery = x14,
-    depthcorr = x15
+    DateTimeStamp = V1,
+    BP = V2,
+    Temp = V3,
+    Cond = V4,
+    Sal = V5,
+    depth = V6,
+    pH = V7,
+    pHvolt= V8,
+    NTU = V9,
+    blank = V10,
+    O2sat = V11,
+    time = V12,
+    DO_obs = V13,
+    battery = V14,
+    depthcorr = V15
   ) %>% 
   mutate(
-    DateTimeStamp = force_tz(DateTimeStamp, tz = 'America/Jamaica')
+    DateTimeStamp = mdy_hm(DateTimeStamp, tz = 'America/Jamaica')
     ) %>% 
   select(DateTimeStamp, Temp, Sal, DO_obs, Tide = depthcorr) %>% 
   na.omit() %>% 
