@@ -352,7 +352,7 @@ cortab <- reactive({
 ```
 
 
-Inputs {.sidebar data-width=400}
+Inputs {.sidebar data-width=375}
 -------------------------------------
 
 ```{r ui}
