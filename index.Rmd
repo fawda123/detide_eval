@@ -357,7 +357,7 @@ Inputs {.sidebar data-width=375}
 
 ```{r ui}
 column(12, 
-  selectInput('site', label = 'Select site',  choices = list('Apalachicola 2019' = 'APNERR', 'Apalachicola 2018' = 'APNERR2018', 'Hudson River' = 'HUDNERR', 'Piermont 2020' = 'PIERMO', 'Piermont 2017' = 'PIERMO2017', 'Sapelo Island' = 'SAPDC'))
+  selectInput('site', label = 'Select site',  choices = list( 'Apalachicola 2020' = 'APNERR2020', 'Apalachicola 2019' = 'APNERR', 'Apalachicola 2018' = 'APNERR2018', 'Hudson River' = 'HUDNERR', 'Piermont 2020' = 'PIERMO', 'Piermont 2017' = 'PIERMO2017', 'Sapelo Island' = 'SAPDC'))
 )
 column(12, 
   renderUI({
