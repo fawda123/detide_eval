@@ -133,3 +133,67 @@ foreach(i = 1:nrow(wingrds), .packages = c('WtRegDO', 'here', 'dplyr', 'lubridat
   save(list = flmetdtd, file = paste0('data/', flmetdtd, '.RData'), compress = 'xz')
   
 }
+
+# optimal window widths from results above --------------------------------
+
+# devtools::load_all('../WtRegDO/')
+
+mins <- list.files('data/', pattern = '^metdtd_') %>% 
+  tibble(fl = .) %>% 
+  mutate(
+    fl = gsub('\\.RData$', '', fl),
+    nm = gsub('^metdtd_(.*)_.*_.*_.*$', '\\1', fl)
+  ) %>% 
+  group_by(nm) %>% 
+  nest() %>% 
+  mutate(
+    metobs = purrr::map(nm, function(nm){
+      
+      flobs <- list.files('data', paste0('metobs_', nm))[1]
+      flobs <- gsub('\\.RData$', '', flobs)
+      load(file = paste0('data/', flobs, '.RData'))
+      get(flobs)
+      
+    }), 
+    obseval = purrr::map(metobs, function(x) enframe(meteval(x, all = F)) %>% unnest(value))
+  ) %>% 
+  unnest(data) %>% 
+  ungroup %>% 
+  mutate(
+    metdtd = purrr::pmap(list(metobs, fl), function(metobs, fl){
+      
+      cat(fl, '\n')
+      load(file = paste0('data/', fl, '.RData'))
+      dat <- get(fl)
+      
+      return(dat)
+      
+    }), 
+    dtdeval = purrr::map(metdtd, function(x) enframe(meteval(x, all = F)) %>% unnest(value))#,
+  ) %>% 
+  mutate(
+    minano = purrr::pmap(list(metobs, metdtd), objfun, vls = c('anomPg', 'anomRt')),
+    minall = purrr::pmap(list(metobs, metdtd), objfun),
+    fl = gsub('^metdtd_', '', fl)
+  ) %>% 
+  select(-metobs, -metdtd, -nm) %>%
+  separate(fl, c('nm', 'dy', 'hr', 'td'), sep = '_') %>% 
+  unnest(c('minano', 'minall')) %>%
+  gather('obj', 'est', minano, minall) %>% 
+  gather('evaltyp', 'eval', obseval, dtdeval) %>% 
+  unnest('eval') %>% 
+  spread(name, value) %>% 
+  group_by(nm, obj, evaltyp)
+
+soln <- mins %>% 
+  filter(est == min(est)) %>% 
+  sample_n(1) %>% 
+  ungroup() %>% 
+  mutate(
+    evaltyp = factor(evaltyp, levels = c('obseval', 'dtdeval'), labels = c('Observed', 'Detided')),
+    obj = factor(obj, levels = c('minall', 'minano'), labels = c('All', 'Anomalous'))
+    ) %>% 
+  arrange(nm, obj, evaltyp) %>% 
+  select(nm, dy, hr, td, Opt = obj, Val = est, Input = evaltyp, `Pg Mean` = meanPg, `Pg SD` = sdPg, `Pg Anom` = anomPg, `Rt Mean` = meanRt, `Rt SD` = sdRt, `Rt Anom` = anomRt)
+
+save(soln, file = 'data/soln.RData', compress = 'xz')

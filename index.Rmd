@@ -18,6 +18,8 @@ library(ShinyDash)
 library(shinydashboard)
 library(flexdashboard)
 library(colorspace)
+
+data(soln)
 ```
 
 ```{r reactives}
@@ -349,6 +351,52 @@ cortab <- reactive({
   return(out)
   
 })
+
+# optimum anomaly tab
+opttab <- reactive({
+  
+  # input
+  site <- input$site
+
+  out <- soln %>% 
+    filter(nm %in% !!site) %>% 
+    select(-nm, -dy, -hr, -td)
+  
+  return(out)
+  
+})
+
+# optimum all wins
+optallwin <- reactive({
+  
+  site <- input$site
+  
+  out <- soln %>% 
+    filter(nm %in% !!site) %>% 
+    filter(Opt == 'All') %>% 
+    .[1, ] %>% 
+    select(dy, hr, td) %>% 
+    as.list()
+  
+  return(out)
+  
+})
+
+# optimum ano wins
+optanowin <- reactive({
+  
+  site <- input$site
+  
+  out <- soln %>% 
+    filter(nm %in% !!site) %>% 
+    filter(Opt == 'Anomalous') %>% 
+    .[1, ] %>% 
+    select(dy, hr, td) %>% 
+    as.list()
+  
+  return(out)
+  
+})
 ```
 
 
@@ -435,4 +483,16 @@ output$anotab <- renderTable(anotab())
 tableOutput('anotab')
 ```
 
+### Optimal windows
+
+The first optimization assumed that improved estimates for detided values have lower anomalies, lower standard deviation, and similar mean values for gross production and respiration.  The second optimization assumed that only lower anomalies were desired.  The half-window widths shown are those values that maximized the optimization for each scenario. Note that the optimal values are based only on the selections in this app.  
+
+Optimal for minimum __all__ values: __`r renderText(optallwin()[['dy']])`__ day, __`r renderText(optallwin()$hr)`__ hr, __`r renderText(optallwin()$td)`__ tide
+
+Optimal for minimum __anomalous__ values:  __`r renderText(optanowin()$dy)`__ day, __`r renderText(optanowin()$hr)`__ hr, __`r renderText(optanowin()$td)`__ tide
+
+```{r}
+output$opttab <- renderTable(opttab())
+tableOutput('opttab')
+```
 
