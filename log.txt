@@ -1,2 +1,3 @@
-125 of 125 
-Time difference of 2.593319 hours
+Log entry time 2020-10-05 09:20:41 
+2568  of  16588 
+Time difference of 22.83957 secs
