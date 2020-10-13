@@ -67,7 +67,11 @@ write.csv(PIERMO2017, 'data/raw/PIERMO2017.csv', row.names = F)
 # process wtregdo ---------------------------------------------------------
 
 wingrds <- crossing(
-    tibble(flnm = c('APNERR', 'APNERR2018', 'APNERR2020', 'HUDNERR', 'SAPDC', 'PIERMO', 'PIERMO2017'), tz = c('America/Jamaica', 'America/Jamaica', 'America/Jamaica', 'America/Jamaica', 'America/Jamaica', 'America/Jamaica', 'America/Jamaica'), lat = c(29.75, 29.75, 29.75, 42.017, 31.39, 41.04, 41.04), long = c(-85, -85, -85, -73.915, -81.28, -73.90, -73.90)),
+    tibble(flnm = c('APNERR2012', 'APNERR', 'APNERR2018', 'APNERR2020', 'HUDNERR', 'SAPDC', 'PIERMO', 'PIERMO2017'), 
+           tz = c('America/Jamaica', 'America/Jamaica', 'America/Jamaica', 'America/Jamaica', 'America/Jamaica', 'America/Jamaica', 'America/Jamaica', 'America/Jamaica'), 
+           lat = c(29.75, 29.75, 29.75, 29.75, 42.017, 31.39, 41.04, 41.04), 
+           long = c(-85, -85, -85, -85, -73.915, -81.28, -73.90, -73.90)
+           ),
     daywin = c(1, 3, 6, 9, 12),
     hrswin = c(1, 3, 6, 9, 12), 
     tidwin = c(0.2, 0.4, 0.6, 0.8, 1)
