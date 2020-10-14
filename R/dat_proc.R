@@ -79,7 +79,7 @@ wingrds <- crossing(
 
 # use this to filter out new files from the grid
 wingrds <- wingrds %>%
-  filter(flnm %in% 'APNERR2020')
+  filter(flnm %in% 'APNERR2012')
 
 ncores <- detectCores()  
 registerDoParallel(cores = ncores - 1)
