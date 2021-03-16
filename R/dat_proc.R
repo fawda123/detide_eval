@@ -191,13 +191,13 @@ mins <- list.files('data/', pattern = '^metdtd_') %>%
 
 soln <- mins %>% 
   filter(est == min(est)) %>% 
-  sample_n(1) %>% 
-  ungroup() %>% 
   mutate(
     evaltyp = factor(evaltyp, levels = c('obseval', 'dtdeval'), labels = c('Observed', 'Detided')),
     obj = factor(obj, levels = c('minall', 'minano'), labels = c('All', 'Anomalous'))
-    ) %>% 
+  ) %>% 
   arrange(nm, obj, evaltyp) %>% 
+  filter(dy == dy[1] & hr == hr[1] & td == td[1]) %>% 
+  ungroup() %>% 
   select(nm, dy, hr, td, Opt = obj, Val = est, Input = evaltyp, `Pg Mean` = meanPg, `Pg SD` = sdPg, `Pg Anom` = anomPg, `Rt Mean` = meanRt, `Rt SD` = sdRt, `Rt Anom` = anomRt)
 
 save(soln, file = 'data/soln.RData', compress = 'xz')
