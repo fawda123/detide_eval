@@ -5,6 +5,6 @@ account: beckmw
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 2410282
-bundleId: 3771965
+bundleId: 4352843
 url: https://beckmw.shinyapps.io/detide_eval/
-when: 1603396807.30497
+when: 1615901785.64708
