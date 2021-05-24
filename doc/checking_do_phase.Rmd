@@ -1,0 +1,313 @@
+---
+output: html_document
+---
+
+```{r setup, include = FALSE, warning = F, message = F, echo = F}
+knitr::opts_chunk$set(echo = TRUE, message = F, echo = F, warning = F)
+
+devtools::load_all(here::here('../WtRegDO'))
+library(tidyverse)
+library(here)
+library(lubridate)
+library(patchwork)
+
+tz <- 'America/Jamaica'
+lat <- 29.75
+long <- -85
+
+# setup parallel backend
+library(doParallel)
+registerDoParallel(cores = detectCores() - 1)
+
+# data
+dat <- here::here('data/raw/APNERR2012.csv') %>%
+  read.csv() %>%
+  mutate(DateTimeStamp = mdy_hm(DateTimeStamp, tz = tz)) %>%
+  na.omit %>%
+  unique 
+
+metobs <- ecometab(dat, tz = tz, DO_var = 'DO_obs', lat = lat, long = long) %>% 
+  meteval(all = F)
+
+plo_fun <- function(wtreg_res){
+  
+  toplo <- wtreg_res %>% 
+    select(DateTimeStamp, DO_obs, DO_prd, DO_nrm, totpar, Tide) %>%
+    mutate_at(vars(matches('DO')), function(x) (x * 1 / 0.032)) %>% 
+    mutate(
+      Date = date(DateTimeStamp),
+      utc_time = as.POSIXlt(DateTimeStamp, tz = 'UTC'),
+      sun_angle = oce::sunAngle(utc_time, long, lat)$altitude
+    ) %>% 
+    group_by(Date) %>% 
+    mutate(
+      donrmmx = DateTimeStamp[which.max(DO_nrm)],
+      sunmx = DateTimeStamp[which.max(sun_angle)]
+    ) %>% 
+    ungroup() %>%
+    select(-utc_time, -sun_angle) %>%
+    gather('var', 'val', -Date, -DateTimeStamp, -donrmmx, -sunmx) %>% 
+    mutate(
+      var = case_when(
+        var == 'DO_nrm' ~ 'DO dtd (mmol/m3)', 
+        var == 'DO_obs' ~ 'DO obs (mmol/m3)', 
+        var == 'DO_prd' ~ 'DO prd (mmol/m3)', 
+        var == 'totpar' ~ 'PAR (W/m2)' ,
+        var == 'Tide' ~ 'Tide (m)'
+      )
+    )
+  
+  pthm <- theme_bw() +
+    theme(
+      axis.title.y = element_blank(), 
+      strip.placement = 'outside', 
+      legend.position = 'none', 
+      strip.background = element_blank(), 
+      axis.title.x = element_blank(), 
+      panel.grid = element_blank(), 
+      strip.text.y = element_text(size = 8)
+    )
+  
+  toplo1 <- toplo %>% 
+    filter(Date >= date('2012-03-18') & Date <= date('2012-03-20'))
+  
+  p1 <- ggplot(toplo1, aes(x = DateTimeStamp, y = val, color = var)) + 
+    geom_line() + 
+    geom_vline(aes(xintercept = sunmx, colour = 'PAR (W/m2)')) +
+    geom_vline(aes(xintercept = donrmmx, colour = 'DO dtd (mmol/m3)')) +
+    facet_wrap(~var, ncol = 1, strip.position = 'left', scales = 'free_y') + 
+    pthm + 
+    labs(
+      subtitle = 'DO/PAR in phase'
+    )
+  
+  toplo2 <- toplo %>% 
+    filter(Date >= date('2012-06-01') & Date <= date('2012-06-03'))
+    
+  p2 <- ggplot(toplo2, aes(x = DateTimeStamp, y = val, color = var)) + 
+    geom_line() + 
+    geom_vline(aes(xintercept = sunmx, colour = 'PAR (W/m2)')) + 
+    geom_vline(aes(xintercept = donrmmx, colour = 'DO dtd (mmol/m3)')) +
+    facet_wrap(~var, ncol = 1, strip.position = 'left', scales = 'free_y') + 
+    pthm +  
+    labs(
+      subtitle = 'DO lagging PAR'
+    )
+  
+  p <- p1 + p2 + plot_layout(ncol = 2)
+  
+  return(p)
+
+}
+
+tab_fun <- function(metdtd, metobs){
+
+  evaldtd <- metdtd %>% 
+    meteval(all = F)
+  
+  out <- list(Observed = metobs, Detided = evaldtd) %>% 
+    enframe('set', 'anom') %>% 
+    mutate(
+      anom = purrr::map(anom, function(x){
+
+        out <- x %>% 
+          .[c('meanPg', 'sdPg', 'anomPg', 'meanRt', 'sdRt', 'anomRt')] %>% 
+          data.frame 
+        
+        names(out) <- c('Pg Mean', 'Pg SD', 'Pg Anom', 'Rt Mean', 'Rt SD', 'Rt Anom')
+        
+        return(out)
+      
+      })
+    ) %>% 
+    unnest('anom') %>% 
+    mutate(
+      set = factor(set, levels = c('Observed', 'Detided'))
+      ) %>% 
+    dplyr::rename(Input = set) %>% 
+    na.omit()
+
+  return(out)
+  
+}
+```
+
+# Checking DO phase {.tabset .tabset-pills}
+
+Apalachicola Feb 23, 2012 to Dec 18, 2012, metabolism performance stats are for the whole time time series.
+
+## Standard model, 6, 12, 0.8
+
+```{r}
+# weighted regression, optimal window widths for SAPDC from the paper
+wtreg_res <- wtreg(dat, wins = list(6, 12, 0.8), progress = F, parallel = T,
+                   tz = tz, lat = lat, long = long, sin = F, par = F)
+```
+
+```{r}
+metdtd <- ecometab(wtreg_res, tz = tz, DO_var = 'DO_nrm', lat = lat, long = long)
+perf <- tab_fun(metdtd, metobs)
+knitr::kable(perf, digits = 1)
+```
+
+```{r, fig.height = 6, fig.width = 7}
+plo_fun(wtreg_res)
+```
+
+```{r, fig.height = 3, fig.width = 7}
+plot(metdtd, by = 'days')
+```
+
+## Standard model, 2, 6, 0.8
+
+```{r}
+# weighted regression, optimal window widths for SAPDC from the paper
+wtreg_res <- wtreg(dat, wins = list(2, 6, 0.8), progress = F, parallel = T,
+                   tz = tz, lat = lat, long = long, sin = F, par = F)
+```
+
+```{r}
+metdtd <- ecometab(wtreg_res, tz = tz, DO_var = 'DO_nrm', lat = lat, long = long)
+perf <- tab_fun(metdtd, metobs)
+knitr::kable(perf, digits = 1)
+```
+
+```{r, fig.height = 6, fig.width = 7}
+plo_fun(wtreg_res)
+```
+
+```{r, fig.height = 3, fig.width = 7}
+plot(metdtd, by = 'days')
+```
+
+## Sine model, 6, 12, 0.8
+
+```{r}
+# weighted regression, optimal window widths for SAPDC from the paper
+wtreg_res <- wtreg(dat, wins = list(6, 12, 0.8), progress = F, parallel = T,
+                   tz = tz, lat = lat, long = long, sin = T, par = F)
+```
+
+```{r}
+metdtd <- ecometab(wtreg_res, tz = tz, DO_var = 'DO_nrm', lat = lat, long = long)
+perf <- tab_fun(metdtd, metobs)
+knitr::kable(perf, digits = 1)
+```
+
+```{r, fig.height = 6, fig.width = 7}
+plo_fun(wtreg_res)
+```
+
+```{r, fig.height = 3, fig.width = 7}
+plot(metdtd, by = 'days')
+```
+
+## Sine model, 2, 6, 0.8
+
+```{r}
+# weighted regression, optimal window widths for SAPDC from the paper
+wtreg_res <- wtreg(dat, wins = list(2, 6, 0.8), progress = F, parallel = T,
+                   tz = tz, lat = lat, long = long, sin = T, par = F)
+```
+
+```{r}
+metdtd <- ecometab(wtreg_res, tz = tz, DO_var = 'DO_nrm', lat = lat, long = long)
+perf <- tab_fun(metdtd, metobs)
+knitr::kable(perf, digits = 1)
+```
+
+```{r, fig.height = 6, fig.width = 7}
+plo_fun(wtreg_res)
+```
+
+```{r, fig.height = 3, fig.width = 7}
+plot(metdtd, by = 'days')
+```
+
+## PAR model, 6, 12, 0.8
+
+```{r}
+# weighted regression, optimal window widths for SAPDC from the paper
+wtreg_res <- wtreg(dat, wins = list(6, 12, 0.8), progress = F, parallel = T,
+                   tz = tz, lat = lat, long = long, sin = F, par = T)
+```
+
+```{r}
+metdtd <- ecometab(wtreg_res, tz = tz, DO_var = 'DO_nrm', lat = lat, long = long)
+perf <- tab_fun(metdtd, metobs)
+knitr::kable(perf, digits = 1)
+```
+
+```{r, fig.height = 6, fig.width = 7}
+plo_fun(wtreg_res)
+```
+
+```{r, fig.height = 3, fig.width = 7}
+plot(metdtd, by = 'days')
+```
+
+## PAR model, 2, 6, 0.8
+
+```{r}
+# weighted regression, optimal window widths for SAPDC from the paper
+wtreg_res <- wtreg(dat, wins = list(2, 6, 0.8), progress = F, parallel = T,
+                   tz = tz, lat = lat, long = long, sin = F, par = T)
+```
+
+```{r}
+metdtd <- ecometab(wtreg_res, tz = tz, DO_var = 'DO_nrm', lat = lat, long = long)
+perf <- tab_fun(metdtd, metobs)
+knitr::kable(perf, digits = 1)
+```
+
+```{r, fig.height = 6, fig.width = 7}
+plo_fun(wtreg_res)
+```
+
+```{r, fig.height = 3, fig.width = 7}
+plot(metdtd, by = 'days')
+```
+
+## PAR, sine model, 6, 12, 0.8
+
+```{r}
+# weighted regression, optimal window widths for SAPDC from the paper
+wtreg_res <- wtreg(dat, wins = list(6, 12, 0.8), progress = F, parallel = T,
+                   tz = tz, lat = lat, long = long, sin = T, par = T)
+```
+
+```{r}
+metdtd <- ecometab(wtreg_res, tz = tz, DO_var = 'DO_nrm', lat = lat, long = long)
+perf <- tab_fun(metdtd, metobs)
+knitr::kable(perf, digits = 1)
+```
+
+```{r, fig.height = 6, fig.width = 7}
+plo_fun(wtreg_res)
+```
+
+```{r, fig.height = 3, fig.width = 7}
+plot(metdtd, by = 'days')
+```
+
+## PAR, sine model, 2, 6, 0.8
+
+```{r}
+# weighted regression, optimal window widths for SAPDC from the paper
+wtreg_res <- wtreg(dat, wins = list(2, 6, 0.8), progress = F, parallel = T,
+                   tz = tz, lat = lat, long = long, sin = T, par = T)
+```
+
+```{r}
+metdtd <- ecometab(wtreg_res, tz = tz, DO_var = 'DO_nrm', lat = lat, long = long)
+perf <- tab_fun(metdtd, metobs)
+knitr::kable(perf, digits = 1)
+```
+
+```{r, fig.height = 6, fig.width = 7}
+plo_fun(wtreg_res)
+```
+
+```{r, fig.height = 3, fig.width = 7}
+plot(metdtd, by = 'days')
+```
